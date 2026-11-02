@@ -1,9 +1,39 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Solo usuarios con sesión iniciada en la app pueden leer y escribir.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function conSesion() { return request.auth != null; }
+    // Administrador: carga la flota, cambia ítems del checklist y ajustes, elimina fichas.
+    function esAdmin() {
+      return conSesion() && request.auth.token.email == 'walther@sanjoseconcretos.com';
+    }
+
+    // Flota: el administrador crea, edita y elimina. Taller solo cambia la foto
+    // y el estado "en taller" (fuera de servicio / volver a servicio).
+    match /camiones/{id} {
+      allow read: if conSesion();
+      allow create, delete: if esAdmin();
+      allow update: if esAdmin() || (conSesion() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['foto', 'fuera', 'historialTaller', 'actualizado']));
+    }
+
+    // Ítems del checklist y ajustes de avisos.
+    match /config/{id} {
+      allow read: if conSesion();
+      allow write: if esAdmin();
+    }
+
+    // Fichas: todos las completan y cierran; solo el administrador elimina.
+    match /fichas/{id} {
+      allow read, create, update: if conSesion();
+      allow delete: if esAdmin();
+    }
+
+    match /alertas/{id} {
+      allow read, write: if conSesion();
+    }
+    match /fotos/{id} {
+      allow read, write: if conSesion();
     }
   }
 }

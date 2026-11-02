@@ -12,3 +12,10 @@ App para tablet y celular que reemplaza la ficha de control de taller en papel d
 - `config.js`: datos del proyecto Firebase.
 - `sw.js`: guarda la app en el equipo para usarla sin internet.
 - `firestore.rules`: reglas de seguridad para pegar en Firestore → Reglas.
+
+## Roles
+
+- **Administrador** (`walther@sanjoseconcretos.com`): carga e importa la flota, edita y elimina móviles, cambia los ítems del checklist y los ajustes de avisos, elimina fichas y maneja los respaldos.
+- **Taller** (cualquier otro usuario): crea, completa, firma y cierra fichas, saca fotos, marca móviles en taller y sigue las alertas.
+
+El email del administrador está en `firestore.rules` (función `esAdmin`) y, opcionalmente, en `config.js` como `window.ADMIN_EMAILS = [...]`. Si se cambia, hay que cambiarlo en los dos y volver a publicar las reglas.
