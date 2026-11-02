@@ -1,12 +1,12 @@
 {
- "name": "Ficha de Taller SJC",
+ "name": "Ficha de Taller San José",
  "short_name": "Ficha SJC",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
  "orientation": "any",
  "background_color": "#eef1f3",
- "theme_color": "#1d5a7a",
+ "theme_color": "#1d1d1b",
  "lang": "es",
  "icons": [
   {
