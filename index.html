@@ -83,6 +83,7 @@ main.wrap{padding-block:20px 80px;display:flex;flex-direction:column;gap:18px}
 .cover .cinfo .umc{font-size:46px;color:var(--tc,var(--fg))}
 .cover .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px;font-size:15px}
 .cover .kv span:first-child{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.fuerabar{background:var(--bad);color:#fff;padding:8px 16px;display:flex;flex-direction:column;gap:2px;font-size:14px}.fuerabar b{letter-spacing:.06em;font-size:13px}
 .tchip{background:var(--tc,var(--t-otro));color:#fff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border-radius:99px;white-space:nowrap}
 .card[style*="--sc"]{border-top:5px solid var(--sc)}
 .card[style*="--sc"] h3 .n{display:inline-grid;place-items:center;min-width:32px;height:32px;padding:0 8px;border-radius:99px;background:var(--sc);color:#fff;font-size:18px}
@@ -407,7 +408,7 @@ function keysOf(f){return [...ITEMS.slice(0,39).map((_,i)=>String(i+1)),...((f&&
 function fichasDe(cid){return Store.list("fichas").filter(f=>f.camionId===cid).sort((a,b)=>(b.fechaEntrada||"").localeCompare(a.fechaEntrada||"")||(b.numero||"").localeCompare(a.numero||""))}
 function statusPill(f){
   if(!f)return `<span class="pill na">Sin fichas</span>`;
-  if(f.estado==="abierta")return `<span class="pill info">En taller</span>`;
+  if(f.estado==="abierta")return `<span class="pill info">Ficha abierta</span>`;
   const r=resumen(f);
   if(r.M)return `<span class="pill bad">${r.M} ítem(s) malo(s)</span>`;
   if(r.R)return `<span class="pill warn">${r.R} regular(es)</span>`;
@@ -438,15 +439,15 @@ const byUmc=(a,b)=>String(a.umc||a.patente||"").localeCompare(String(b.umc||b.pa
 function renderFlota(){
   const q=state.q.toLowerCase();
   const todos=Store.list("camiones");const tiposPres=[...new Set(todos.map(c=>c.tipo).filter(Boolean))].sort((a,b)=>TIPOS.indexOf(a)-TIPOS.indexOf(b));
-  const cams=todos.filter(c=>(!state.tipo||c.tipo===state.tipo)&&(!q||[c.umc,c.patente,c.marca,c.modelo,c.tipo].join(" ").toLowerCase().includes(q))).sort(byUmc);
+  const cams=todos.filter(c=>(!state.tipo||c.tipo===state.tipo||(state.tipo==="__taller"&&c.fuera))&&(!q||[c.umc,c.patente,c.marca,c.modelo,c.tipo].join(" ").toLowerCase().includes(q))).sort(byUmc);
   const loading=Store.mode==="nube"&&!Store.loaded.camiones&&!cams.length;
-  const total=Store.list("camiones").length, abiertas=Store.list("fichas").filter(f=>f.estado==="abierta").length;
+  const total=Store.list("camiones").length, abiertas=Store.list("fichas").filter(f=>f.estado==="abierta").length, enTaller=Store.list("camiones").filter(c=>c.fuera).length;
   $("#main").innerHTML=`
-    <div class="row"><h2 style="font-size:30px;margin-right:auto">Flota <span class="muted mono" style="font-size:20px">${total} unidades · ${abiertas} en taller</span></h2>
+    <div class="row"><h2 style="font-size:30px;margin-right:auto">Flota <span class="muted mono" style="font-size:20px">${total} unidades · ${total-enTaller} operativas · <span style="color:${enTaller?"var(--bad)":"inherit"}">${enTaller} en taller</span>${abiertas?` · ${abiertas} ficha${abiertas>1?"s":""} abierta${abiertas>1?"s":""}`:""}</span></h2>
     <button class="btn" id="impSheet">Importar planilla de flota</button><button class="btn primary" id="addCam">+ Agregar camión</button></div>
     ${(()=>{const ph=pendientesHoy();return ph.total?`<button class="banner" id="goAl"><b>${ph.al?`${ph.al} alerta${ph.al>1?"s":""} para revisar hoy`:""}${ph.al&&ph.ct?" · ":""}${ph.ct?`${ph.ct} control${ph.ct>1?"es":""} vencido${ph.ct>1?"s":""} o por vencer`:""}</b><span>Ver alertas →</span></button>`:""})()}
     <div class="row"><input class="search" id="q" type="search" placeholder="Buscar por UMC, patente, marca, modelo o tipo" value="${esc(state.q)}"></div>
-    ${tiposPres.length>1?`<div class="tfil"><button data-tipo="" aria-pressed="${!state.tipo}">Todos <b class="mono">${todos.length}</b></button>${tiposPres.map(t=>`<button data-tipo="${esc(t)}" style="${tc(t)}" aria-pressed="${state.tipo===t}"><i></i>${esc(t)} <b class="mono">${todos.filter(c=>c.tipo===t).length}</b></button>`).join("")}</div>`:""}
+    ${tiposPres.length>1||enTaller?`<div class="tfil"><button data-tipo="" aria-pressed="${!state.tipo}">Todos <b class="mono">${todos.length}</b></button>${enTaller?`<button data-tipo="__taller" style="--tc:var(--bad)" aria-pressed="${state.tipo==="__taller"}"><i></i>En taller <b class="mono">${enTaller}</b></button>`:""}${tiposPres.map(t=>`<button data-tipo="${esc(t)}" style="${tc(t)}" aria-pressed="${state.tipo===t}"><i></i>${esc(t)} <b class="mono">${todos.filter(c=>c.tipo===t).length}</b></button>`).join("")}</div>`:""}
     ${loading?`<div class="empty"><strong>Cargando la flota…</strong></div>`:
       cams.length?`<div class="grid-cards">${cams.map(cardCamion).join("")}</div>`:
       `<div class="empty"><h3 style="font-size:22px">Todavía no hay camiones cargados</h3><p class="muted" style="margin:0">Subí la planilla de la flota (Excel o CSV) con una fila por UMC, o agregá cada unidad a mano.</p><div class="row" style="justify-content:center">${window.SEED_URL?`<button class="btn primary" id="seedBtn">Cargar la flota SJC</button>`:""}<button class="btn ${window.SEED_URL?"":"primary"}" id="impSheet2">Importar planilla de flota</button><button class="btn" id="addCam2">+ Agregar a mano</button></div></div>`}
@@ -461,6 +462,7 @@ function renderFlota(){
     if(b.dataset.act==="nueva"){const ab=fichasDe(c.id).find(f=>f.estado==="abierta");if(ab){go("editor",{fichaId:ab.id});return}const f=newFicha(c);Store.save("fichas",f);go("editor",{fichaId:f.id})}
     else if(b.dataset.act==="hist")go("camion",{camionId:c.id});
     else if(b.dataset.act==="edit")camionModal(c);
+    else if(b.dataset.act==="taller")tallerModal(c);
   });
   $("#exp").onclick=exportar;$("#imp").onchange=importar;
   document.querySelectorAll("[data-tipo]").forEach(b=>b.onclick=()=>{state.tipo=b.dataset.tipo;renderFlota()});
@@ -470,17 +472,39 @@ function cardCamion(c){
   const fs=fichasDe(c.id),last=fs[0];
   return `<article class="truck" style="${tc(c.tipo)}">
     <div class="band"><span class="umc">${esc(c.umc||"—")}</span><span class="tipo">${esc(c.tipo||"—")}</span></div>
+    ${c.fuera?`<div class="fuerabar"><b>EN TALLER · FUERA DE SERVICIO</b><span>Desde ${fdate(c.fuera.desde)} (${haceTxt(diffDays(c.fuera.desde,today()))})${c.fuera.motivo?" · "+esc(c.fuera.motivo):""}</span></div>`:""}
     ${c.foto?`<div class="pic"><img alt="Foto de ${esc(c.umc)}" data-cfoto="${c.id}"></div>`:""}
     <div class="inner">
     <div class="row" style="justify-content:space-between"><div><strong style="font-size:18px">${esc([c.marca,c.modelo].filter(Boolean).join(" ")||"Sin marca")}</strong> <span class="muted">${esc(c.anio||"")}</span></div><span class="plate sm">${esc(c.patente||"S/P")}</span></div>
     <div class="row">${statusPill(last)}${(()=>{const ab=alertasAbiertas(c.id),v=ab.filter(alertaVencida).length;return ab.length?`<span class="pill ${v?"bad":"warn"}">${ab.length} alerta${ab.length>1?"s":""}${v?` · ${v} para hoy`:""}</span>`:""})()}${controlPill(controlInfo(c))}</div>
     <div class="meta"><span>Último control: <b class="mono">${last?fdate(last.fechaEntrada):"—"}</b>${last&&last.km?` · <span class="mono">${esc(last.km)} km</span>`:""}</span></div>
-    <div class="actions"><button class="btn primary" data-act="nueva" data-id="${c.id}">${last&&last.estado==="abierta"?"Continuar ficha":"Nueva ficha"}</button><button class="btn" data-act="hist" data-id="${c.id}">Seguimiento (${fs.length})</button><button class="btn ghost" data-act="edit" data-id="${c.id}">Ver / editar datos</button></div>
+    <div class="actions"><button class="btn primary" data-act="nueva" data-id="${c.id}">${last&&last.estado==="abierta"?"Continuar ficha":"Nueva ficha"}</button><button class="btn" data-act="hist" data-id="${c.id}">Seguimiento (${fs.length})</button><button class="btn ghost" data-act="edit" data-id="${c.id}">Ver / editar datos</button><button class="btn ${c.fuera?"":"danger"}" data-act="taller" data-id="${c.id}">${c.fuera?"Volver a servicio":"Enviar a taller"}</button></div>
   </div></article>`;
 }
 function cargarFotosCamion(){document.querySelectorAll("[data-cfoto]").forEach(im=>{const c=Store.get("camiones",im.dataset.cfoto);if(c&&c.foto)Fotos.src(c.foto).then(u=>{if(u)im.src=u})})}
 function elegirFoto(camara){return new Promise(res=>{const inp=$("#photoIn");inp.value="";if(camara)inp.setAttribute("capture","environment");else inp.removeAttribute("capture");inp.onchange=async()=>{const f=inp.files[0];if(!f)return res(null);toast("Guardando foto…");try{res(await Fotos.add(f))}catch(e){toast("No se pudo guardar la foto");res(null)}};inp.click()})}
 function setFotoCamion(cid,foto){const c=Store.get("camiones",cid);if(!c)return;const x=JSON.parse(JSON.stringify(c));x.foto=foto;Store.save("camiones",x)}
+
+/* ===== Estado del móvil: en taller / fuera de servicio ===== */
+function tallerModal(c0){
+  const c=JSON.parse(JSON.stringify(c0));c.historialTaller=c.historialTaller||[];
+  if(c.fuera){
+    $("#layer").innerHTML=`<div class="overlay"><form class="modal" id="tf"><h2>Volver a servicio · ${esc(c.umc)}</h2>
+      <p style="margin:0">En taller desde <b>${fdate(c.fuera.desde)}</b> (${haceTxt(diffDays(c.fuera.desde,today()))})${c.fuera.motivo?`: ${esc(c.fuera.motivo)}`:""}.</p>
+      <div class="fields"><div class="f"><label for="tf-hasta">Vuelve a servicio el</label><input id="tf-hasta" type="date" value="${today()}"></div>
+      <div class="f wide"><label for="tf-nota">Qué se hizo (opcional)</label><textarea id="tf-nota" placeholder="Ej.: cambio de embrague"></textarea></div></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="tfx">Cancelar</button><button class="btn primary">Volver a servicio</button></div></form></div>`;
+    $("#tf").onsubmit=e=>{e.preventDefault();c.historialTaller.push({...c.fuera,hasta:$("#tf-hasta").value||today(),nota:$("#tf-nota").value.trim()});c.fuera=null;Store.save("camiones",c);$("#layer").innerHTML="";render();toast(`${c.umc} volvió a servicio`)};
+  }else{
+    $("#layer").innerHTML=`<div class="overlay"><form class="modal" id="tf"><h2>Enviar a taller · ${esc(c.umc)}</h2>
+      <p class="muted" style="margin:0">El móvil queda marcado como fuera de servicio hasta que toques "Volver a servicio".</p>
+      <div class="fields"><div class="f"><label for="tf-desde">En taller desde</label><input id="tf-desde" type="date" value="${today()}"></div>
+      <div class="f wide"><label for="tf-motivo">Motivo</label><textarea id="tf-motivo" placeholder="Ej.: pérdida de aceite en reductora"></textarea></div></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="tfx">Cancelar</button><button class="btn danger">Enviar a taller</button></div></form></div>`;
+    $("#tf").onsubmit=e=>{e.preventDefault();c.fuera={desde:$("#tf-desde").value||today(),motivo:$("#tf-motivo").value.trim()};Store.save("camiones",c);$("#layer").innerHTML="";render();toast(`${c.umc} marcado en taller`)};
+  }
+  $("#tfx").onclick=()=>$("#layer").innerHTML="";
+}
 
 /* ===== Modal camión ===== */
 const CAMPOS=[["umc","UMC (nombre del móvil)"],["patente","Patente / Placa"],["tipo","Tipo"],["marca","Marca"],["modelo","Modelo"],["anio","Año"],["chasis","N° Chasis"],["combustible","Combustible"],["propietario","Propietario"],["aseguradora","Aseguradora"]];
@@ -703,6 +727,7 @@ function renderCamion(){
   const rk=k=>k==="40"?2e3:/^\d+$/.test(k)?+k:1e3;keys.sort((a,b)=>rk(a)-rk(b));
   $("#main").innerHTML=`<div class="edhead"><button class="btn ghost" id="back">← Flota</button><h2>UMC ${esc(c.umc)}</h2><span class="plate">${esc(c.patente)}</span><span class="tchip" style="${tc(c.tipo)}">${esc(c.tipo||"")}</span><span class="muted">${esc([c.marca,c.modelo,c.anio].filter(Boolean).join(" "))}</span></div>
   <div class="row">${controlPill(ci)}<div class="f" style="flex-direction:row;align-items:center;gap:8px"><label for="freq" class="lbl">Control cada</label><select id="freq" style="min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:6px 10px">${[7,10,15,20,30,45,60].map(n=>`<option value="${n}" ${ci.freq===n?"selected":""}>${n} días</option>`).join("")}</select></div><span style="flex:1"></span><button class="btn primary" id="hacer">${fs[0]&&fs[0].estado==="abierta"?"Continuar ficha":"Hacer control"}</button></div>
+  ${c.fuera?`<div class="fuerabar" style="border-radius:var(--r)"><b>EN TALLER · FUERA DE SERVICIO</b><span>Desde ${fdate(c.fuera.desde)} (${haceTxt(diffDays(c.fuera.desde,today()))})${c.fuera.motivo?" · "+esc(c.fuera.motivo):""}</span></div>`:""}
   <section class="card"><h3>Alertas abiertas (${ab.length})</h3>${ab.length?`<div class="alist">${ab.map(alertaCard).join("")}</div>`:`<p class="muted" style="margin:0">Sin alertas abiertas.</p>`}</section>
   <section class="card"><h3>Evolución por ítem</h3>
     ${cerr.length?`<div class="row"><label class="chk"><input type="checkbox" id="todos" ${state.todos?"checked":""}> Ver todos los ítems (si no, solo los que alguna vez dieron R o M)</label></div>
@@ -711,6 +736,7 @@ function renderCamion(){
     </tbody></table></div>`:`<p class="muted" style="margin:0">Ningún ítem dio R o M en los últimos controles.</p>`}`:`<p class="muted" style="margin:0">La evolución aparece cuando haya controles cerrados.</p>`}
   </section>
   <section class="card"><h3>Controles (${fs.length})</h3>${fs.length?`<div class="tablebox"><table><thead><tr><th>N° ficha</th><th>Fecha</th><th>Km</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>${fs.map(f=>{const r=resumen(f);return `<tr data-id="${f.id}"><td class="mono">${esc(f.numero)}</td><td class="mono">${fdate(f.fechaEntrada)}</td><td class="mono">${esc(f.km||"—")}</td><td><span class="pill ok">${r.B} B</span> <span class="pill warn">${r.R} R</span> <span class="pill bad">${r.M} M</span></td><td>${f.estado==="abierta"?`<span class="pill info">Abierta</span>`:`<span class="pill na">Cerrada</span>`}</td></tr>`}).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">Todavía no hay controles.</p>`}</section>
+  ${(c.historialTaller||[]).length?`<section class="card"><h3>Paso por taller (${c.historialTaller.length})</h3><div class="tablebox"><table><thead><tr><th>Entró</th><th>Salió</th><th>Días</th><th>Motivo</th><th>Qué se hizo</th></tr></thead><tbody>${[...c.historialTaller].reverse().map(h=>`<tr style="cursor:default"><td class="mono">${fdate(h.desde)}</td><td class="mono">${fdate(h.hasta)}</td><td class="mono">${Math.max(0,diffDays(h.desde,h.hasta))}</td><td style="white-space:normal">${esc(h.motivo||"—")}</td><td style="white-space:normal">${esc(h.nota||"—")}</td></tr>`).join("")}</tbody></table></div></section>`:""}
   ${rs.length?`<section class="card"><h3>Alertas resueltas (${rs.length})</h3><div class="alist">${rs.map(alertaCard).join("")}</div></section>`:""}`;
   $("#back").onclick=()=>go("flota");$("#hacer").onclick=()=>abrirFicha(c.id);
   $("#freq").onchange=e=>{const x=JSON.parse(JSON.stringify(c));x.frecuencia=+e.target.value;Store.save("camiones",x);renderCamion();toast("Frecuencia guardada")};
@@ -728,7 +754,7 @@ function renderHistorial(){
   const cams=Store.list("camiones").sort(byUmc);
   $("#main").innerHTML=`<div class="row"><h2 style="font-size:30px;margin-right:auto">Fichas de control</h2></div>
     <div class="row"><div class="f" style="min-width:220px"><label for="fc">Camión</label><select id="fc"><option value="">Todos</option>${cams.map(c=>`<option value="${c.id}" ${state.filtroCamion===c.id?"selected":""}>UMC ${esc(c.umc)} · ${esc(c.patente)} · ${esc(c.marca)} ${esc(c.modelo)}</option>`).join("")}</select></div>
-    <div class="f" style="min-width:180px"><label for="fe">Estado</label><select id="fe"><option value="">Todas</option><option value="abierta" ${state.filtroEstado==="abierta"?"selected":""}>Abiertas (en taller)</option><option value="cerrada" ${state.filtroEstado==="cerrada"?"selected":""}>Cerradas</option></select></div></div>
+    <div class="f" style="min-width:180px"><label for="fe">Estado</label><select id="fe"><option value="">Todas</option><option value="abierta" ${state.filtroEstado==="abierta"?"selected":""}>Abiertas (sin cerrar)</option><option value="cerrada" ${state.filtroEstado==="cerrada"?"selected":""}>Cerradas</option></select></div></div>
     ${fs.length?`<div class="tablebox"><table><thead><tr><th>N° ficha</th><th>UMC</th><th>Patente</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Km</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>
     ${fs.map(f=>{const r=resumen(f);return `<tr data-id="${f.id}"><td class="mono">${esc(f.numero)}${f.ejemplo?` <span class="ex">Ejemplo</span>`:""}</td><td><b class="umc" style="font-size:20px">${esc(f.vehiculo&&f.vehiculo.umc)}</b></td><td class="mono">${esc(f.vehiculo&&f.vehiculo.patente)}</td><td>${esc(f.vehiculo&&f.vehiculo.tipo)}</td><td class="mono">${fdate(f.fechaEntrada)}</td><td class="mono">${fdate(f.fechaSalida)}</td><td class="mono">${esc(f.km||"—")}</td>
       <td><span class="pill ok">${r.B} B</span> <span class="pill warn">${r.R} R</span> <span class="pill bad">${r.M} M</span></td><td>${f.estado==="abierta"?`<span class="pill info">Abierta</span>`:`<span class="pill na">Cerrada</span>`}</td></tr>`}).join("")}
