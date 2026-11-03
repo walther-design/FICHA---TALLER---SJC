@@ -188,6 +188,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--surface-2)}
 .additem input[type=text]{flex:1;min-width:220px;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:10px 12px;min-height:46px}
 .chk{display:flex;gap:8px;align-items:center;font-size:15px}
 .chk input{width:22px;height:22px}
+.qx{border:0;background:none;color:var(--bad);font:inherit;font-size:12px;font-weight:700;padding:2px 4px;margin-left:4px;cursor:pointer;text-decoration:underline}
 .xtra{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
 .prev{max-height:340px}
 .badge{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--bad);color:#fff;font-size:12px;font-weight:700;margin-left:4px}
@@ -352,7 +353,7 @@ function setSync(){
   document.body.classList.toggle("noadm",!esAdmin());const rl=$("#rol");if(rl){rl.hidden=!Store.user;rl.textContent=esAdmin()?"Administrador":"Taller";rl.title=Store.user+" · versión "+APP_VERSION}
 }
 /* ===== Roles: el administrador gestiona flota, ítems y ajustes; taller completa chequeos ===== */
-const APP_VERSION="2026-11-03 · v9";
+const APP_VERSION="2026-11-03 · v10";
 const ADMIN_DEF=["walther@sanjoseconcretos.com"];
 function esAdmin(){if(!Store.fb)return true;return (window.ADMIN_EMAILS||ADMIN_DEF).map(x=>String(x).toLowerCase()).includes(String(Store.user||"").toLowerCase())}
 function soloAdmin(){if(esAdmin())return false;toast("Solo el administrador puede hacer esto");return true}
@@ -979,6 +980,7 @@ function renderEditor(){
     const cb=e.target.closest("[data-camitem]");if(cb){tomarFoto(cb.dataset.camitem,true);return}
     const ap=e.target.closest("[data-addph]");if(ap){tomarFoto("",ap.dataset.addph==="cam");return}
     const vp=e.target.closest("[data-viewph]");if(vp){verFoto(+vp.dataset.viewph);return}
+    const qx=e.target.closest("[data-quitar]");if(qx){quitarItem(qx.dataset.quitar);return}
     const di=e.target.closest("[data-delitem]");if(di){const k=di.dataset.delitem;confirmar("¿Quitar este ítem de la ficha?","Quitar",()=>{F.extras=F.extras.filter(x=>x.id!==k);delete F.items[k];F.fotos=(F.fotos||[]).map(f=>f.item===k?{...f,item:""}:f);$("#checks").innerHTML=checkRows();updateCounts();renderPhotos();scheduleSave()})}
   });
   if(!ro){
@@ -1004,13 +1006,19 @@ function itemRow(n,num,name,isX){
   const it=F.items[n]||(F.items[n]={estado:"",obs:""});
   const extra=n==="40"?`<input id="otros" placeholder="Especificar…" value="${esc(F.otros)}">`:"";
   const tag=MIXER_ONLY.includes(+n)&&!isX?` <span class="chip" style="font-size:10px">Mixer</span>`:"";
-  const xt=isX?` <span class="xtra">Adicional</span>`:"";
+  const xt=(isX?` <span class="xtra">Adicional</span>`:"")+(n!=="40"&&F.estado!=="cerrada"&&esAdmin()?` <button type="button" class="qx noprint adm" data-quitar="${n}" title="Quitar este ítem de todas las fichas">✕ Quitar</button>`:"");
   const fc=fotosDeItem(n);
   return `<div class="item ${needs(n)?"need":""}" id="it-${n}"><span class="num">${num}.</span><span class="name">${esc(name)}${tag}${xt}${extra}</span>
     <div class="est" data-item="${n}">${["B","R","M","NA"].map(v=>`<button type="button" class="${v==="NA"?"na":""}" data-v="${v}" aria-pressed="${it.estado===v}" aria-label="${EST_LABEL[v]}" title="${EST_LABEL[v]}">${v==="NA"?"N/A":v}</button>`).join("")}<button type="button" class="camb noprint ${fc?"has":""}" data-camitem="${n}" title="Sacar foto de este ítem">${fc?fc+" foto"+(fc>1?"s":""):"+ Foto"}</button></div>
     <div class="obs"${it.estado==="R"||it.estado==="M"||it.obs?"":" hidden"}><input data-obs="${n}" placeholder="Observación${it.estado==="R"||it.estado==="M"?" (obligatoria)":""}" value="${esc(it.obs)}"></div></div>`;
 }
 function itemNombre(k){return itemNombreDe(F,k)}
+function quitarItem(k){if(soloAdmin()||!F||k==="40")return;const nm=itemNombre(k).replace(/^\d+\.\s*/,"");const isX=(F.extras||[]).some(x=>x.id===k);
+  confirmar(`¿Quitar "${nm}" del checklist? Deja de aparecer en esta ficha, en las abiertas y en las nuevas. Las fichas cerradas no cambian. Se puede volver a mostrar desde Flota → Ítems del checklist.`,"Quitar",()=>{
+    if(isX){setPlantilla(plantilla().filter(x=>x.id!==k));F.extras=F.extras.filter(x=>x.id!==k);delete F.items[k]}
+    else{const oc=ocultos();if(!oc.includes(k))setOcultos([...oc,k].sort((a,b)=>a-b));F.ocultos=[...new Set([...(F.ocultos||[]),k])]}
+    F.fotos=(F.fotos||[]).map(f=>f.item===k?{...f,item:""}:f);
+    const y=window.scrollY;$("#checks").innerHTML=checkRows();updateCounts();renderPhotos();scheduleSave();window.scrollTo(0,y);toast(`"${nm}" quitado`)})}
 function renderCover(){
   const box=$("#cimg");if(!box||!F)return;const ro=F.estado==="cerrada";const c=Store.get("camiones",F.camionId)||{};
   const foto=F.portada||c.foto;
