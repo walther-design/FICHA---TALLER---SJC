@@ -861,15 +861,23 @@ function renderHistorial(){
   $("#main").innerHTML=`<div class="row"><h2 style="font-size:30px;margin-right:auto">Fichas de control</h2></div>
     <div class="row"><div class="f" style="min-width:220px"><label for="fc">Camión</label><select id="fc"><option value="">Todos</option>${cams.map(c=>`<option value="${c.id}" ${state.filtroCamion===c.id?"selected":""}>UMC ${esc(c.umc)} · ${esc(c.patente)} · ${esc(c.marca)} ${esc(c.modelo)}</option>`).join("")}</select></div>
     <div class="f" style="min-width:180px"><label for="fe">Estado</label><select id="fe"><option value="">Todas</option><option value="abierta" ${state.filtroEstado==="abierta"?"selected":""}>Abiertas (sin cerrar)</option><option value="cerrada" ${state.filtroEstado==="cerrada"?"selected":""}>Cerradas</option></select></div></div>
-    ${fs.length?`<div class="tablebox"><table><thead><tr><th>N° ficha</th><th>UMC</th><th>Patente</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Km</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>
+    ${fs.length?`<div class="tablebox"><table><thead><tr><th>N° ficha</th><th>UMC</th><th>Patente</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Km</th><th>Resultado</th><th>Estado</th><th class="adm"></th></tr></thead><tbody>
     ${fs.map(f=>{const r=resumen(f);return `<tr data-id="${f.id}"><td class="mono">${esc(f.numero)}${f.ejemplo?` <span class="ex">Ejemplo</span>`:""}</td><td>${f.vehiculo&&f.vehiculo.umc?`<b class="umc" style="font-size:20px">${esc(f.vehiculo.umc)}</b>`:`<span class="pill na">Móvil eliminado</span>`}</td><td class="mono">${esc(f.vehiculo&&f.vehiculo.patente)}</td><td>${esc(f.vehiculo&&f.vehiculo.tipo)}</td><td class="mono">${fdate(f.fechaEntrada)}</td><td class="mono">${fdate(f.fechaSalida)}</td><td class="mono">${esc(f.km||"—")}</td>
-      <td><span class="pill ok">${r.B} B</span> <span class="pill warn">${r.R} R</span> <span class="pill bad">${r.M} M</span></td><td>${f.estado==="abierta"?`<span class="pill info">Abierta</span>`:`<span class="pill na">Cerrada</span>`}</td></tr>`}).join("")}
+      <td><span class="pill ok">${r.B} B</span> <span class="pill warn">${r.R} R</span> <span class="pill bad">${r.M} M</span></td><td>${f.estado==="abierta"?`<span class="pill info">Abierta</span>`:`<span class="pill na">Cerrada</span>`}</td><td class="adm"><button class="btn danger" data-delf="${f.id}" style="min-height:36px;padding:4px 12px">Eliminar</button></td></tr>`}).join("")}
     </tbody></table></div>`:`<div class="empty"><strong>No hay fichas con este filtro</strong><span class="muted">Las fichas se crean desde la tarjeta de cada camión, en la pestaña Flota.</span></div>`}`;
   $("#fc").onchange=e=>{state.filtroCamion=e.target.value;renderHistorial()};
   $("#fe").onchange=e=>{state.filtroEstado=e.target.value;renderHistorial()};
   document.querySelectorAll("tbody tr[data-id]").forEach(tr=>tr.onclick=()=>go("editor",{fichaId:tr.dataset.id}));
+  document.querySelectorAll("[data-delf]").forEach(b=>b.onclick=e=>{e.stopPropagation();eliminarFicha(Store.get("fichas",b.dataset.delf))});
 }
 
+function eliminarFicha(f){
+  if(soloAdmin()||!f)return;const al=Store.list("alertas").filter(a=>a.fichaId===f.id);
+  confirmar(`¿Eliminar la ficha N° ${f.numero} de ${(f.vehiculo&&f.vehiculo.umc)||"este móvil"}?${al.length?` También se borran las ${al.length} alerta(s) que salieron de esta ficha.`:""} No se puede deshacer.`,"Eliminar",()=>{
+    if(F&&F.id===f.id){clearTimeout(saveT);dirty=false}
+    (f.fotos||[]).forEach(x=>{try{Fotos.remove(x)}catch(e){}});al.forEach(a=>Store.remove("alertas",a.id));Store.remove("fichas",f.id);
+    if(F&&F.id===f.id){F=null;go("historial")}else render();toast("Ficha eliminada")});
+}
 /* ===== Vista: editor de ficha ===== */
 let F=null,saveT=null,dirty=false;
 function scheduleSave(){dirty=true;clearTimeout(saveT);saveT=setTimeout(saveNow,700);updateBar()}
@@ -900,7 +908,7 @@ function renderEditor(){
       <div class="kv"><div><span>Marca y modelo</span><span>${esc([v.marca,v.modelo].filter(Boolean).join(" ")||"—")}</span></div><div><span>Año</span><span>${esc(v.anio||"—")}</span></div><div><span>Fecha de control</span><span class="mono">${fdate(F.fechaEntrada)}</span></div><div><span>Ficha N°</span><span class="mono">${esc(F.numero)}</span></div></div>
     </div>
   </section>
-  ${ro?`<div class="closed-banner">Ficha cerrada el ${fdate(F.fechaSalida)}. Está en modo lectura. <button class="btn" id="reopen" style="margin-left:auto">Reabrir para corregir</button></div>`:""}
+  ${ro?`<div class="closed-banner">Ficha cerrada el ${fdate(F.fechaSalida)}. Está en modo lectura. <span style="margin-left:auto"></span><button class="btn adm" id="reopen">Reabrir para corregir</button><button class="btn danger adm" id="delF2" type="button">Eliminar ficha</button></div>`:""}
   <nav class="secnav noprint" aria-label="Secciones de la ficha"><a href="#s1" style="--sc:var(--s1)">1 · Vehículo</a><a href="#s2" style="--sc:var(--s2)">2 · Checklist</a><a href="#sf" style="--sc:var(--sf)">Fotos</a><a href="#s3" style="--sc:var(--s3)">3 · Trabajos</a><a href="#s4" style="--sc:var(--s4)">4 · Observaciones</a><a href="#s5" style="--sc:var(--s5)">5 · Próximo y firmas</a></nav>
   <div id="ed" class="${ro?"readonly":""}" style="display:flex;flex-direction:column;gap:18px">
   <section class="card" id="s1" style="--sc:var(--s1)"><h3><span class="n">1.</span> Datos del vehículo</h3>
@@ -915,7 +923,7 @@ function renderEditor(){
     <div class="progress"><i id="prog"></i></div>
     <div class="row noprint"><button class="btn" id="allB" type="button">Marcar pendientes como Bueno</button>${!isMixer?`<button class="btn" id="naMixer" type="button">Ítems de mixer → N/A</button>`:""}</div>
     <div class="checks" id="checks">${checkRows()}</div>
-    ${ro?"":`<form class="additem noprint" id="xadd"><input type="text" id="xaddname" placeholder="Nuevo ítem para todas las fichas (ej.: Limpieza del tambor)"><button class="btn primary">+ Agregar ítem</button></form>`}
+    ${ro?"":`<form class="additem noprint adm" id="xadd"><input type="text" id="xaddname" placeholder="Nuevo ítem para todas las fichas (ej.: Limpieza del tambor)"><button class="btn primary">+ Agregar ítem</button></form>`}
   </section>
   <section class="card" id="sf" style="--sc:var(--sf)"><h3><span class="n">F</span> Fotos del chequeo <span class="muted mono" id="fcnt" style="font-size:16px"></span></h3>
     <p class="muted" style="margin:0">Sacá fotos en el momento del chequeo. Las fotos tomadas desde un ítem quedan vinculadas a ese ítem.</p>
@@ -936,7 +944,8 @@ function renderEditor(){
   </div>`;
   renderJobs();updateCounts();renderPhotos();renderCover();
   $("#back").onclick=()=>{saveNow();go(state.filtroCamion?"historial":"flota")};
-  const rb=$("#reopen");if(rb)rb.onclick=()=>{F.estado="abierta";dirty=true;saveNow();render()};
+  const rb=$("#reopen");if(rb)rb.onclick=()=>{if(soloAdmin())return;F.estado="abierta";dirty=true;saveNow();render()};
+  const d2=$("#delF2");if(d2)d2.onclick=()=>eliminarFicha(F);
   const ed=$("#ed");
   ed.addEventListener("input",e=>{const t=e.target;
     if(t.dataset.path){setP(t.dataset.path,t.value);scheduleSave()}
@@ -969,7 +978,7 @@ function renderEditor(){
       F.extras=[...(F.extras||[]),x];F.items[x.id]={estado:"",obs:""};$("#checks").innerHTML=checkRows();updateCounts();scheduleSave();$("#xaddname").value="";toast("Ítem agregado a todas las fichas")};
     const nm=$("#naMixer");if(nm)nm.onclick=()=>{MIXER_ONLY.forEach(n=>{if(!F.items[n].estado)setEstado(n,"NA")});scheduleSave()};
     $("#addJob").onclick=()=>{F.trabajos.push({desc:"",cant:"",unidad:"",tiempo:"",costo:"",mecanico:"",estado:"Pendiente"});renderJobs();scheduleSave();const l=document.querySelector(`[data-job="${F.trabajos.length-1}:desc"]`);if(l)l.focus()};
-    $("#delF").onclick=()=>confirmar(`¿Eliminar la ficha N° ${F.numero}? No se puede deshacer.`,"Eliminar",()=>{clearTimeout(saveT);dirty=false;Store.remove("fichas",F.id);F=null;go("flota");toast("Ficha eliminada")});
+    $("#delF").onclick=()=>eliminarFicha(F);
     FIRMAS.forEach(([k])=>initSig(k));
   }
   document.querySelectorAll(".secnav a").forEach(a=>a.onclick=e=>{e.preventDefault();const t=document.getElementById(a.getAttribute("href").slice(1));if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});

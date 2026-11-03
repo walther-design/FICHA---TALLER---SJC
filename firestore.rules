@@ -23,14 +23,18 @@ service cloud.firestore {
       allow write: if esAdmin();
     }
 
-    // Fichas: todos las completan y cierran; solo el administrador elimina.
+    // Fichas: taller crea, completa y cierra. Una ficha cerrada solo la
+    // reabre, corrige o elimina el administrador.
     match /fichas/{id} {
-      allow read, create, update: if conSesion();
+      allow read, create: if conSesion();
+      allow update: if esAdmin() || (conSesion() && resource.data.estado != 'cerrada');
       allow delete: if esAdmin();
     }
 
+    // Alertas: todos las siguen y resuelven; solo el administrador las borra.
     match /alertas/{id} {
-      allow read, write: if conSesion();
+      allow read, create, update: if conSesion();
+      allow delete: if esAdmin();
     }
     match /fotos/{id} {
       allow read, write: if conSesion();
