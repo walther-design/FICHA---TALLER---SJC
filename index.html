@@ -349,9 +349,10 @@ function setSync(){
   else if(Store.pending.length)t.textContent=`${Store.pending.length} cambio(s) sin enviar`;
   else t.textContent="Sincronizado";
   const so=$("#salir");if(so)so.hidden=!Store.user;
-  document.body.classList.toggle("noadm",!esAdmin());const rl=$("#rol");if(rl){rl.hidden=!Store.user;rl.textContent=esAdmin()?"Administrador":"Taller";rl.title=Store.user}
+  document.body.classList.toggle("noadm",!esAdmin());const rl=$("#rol");if(rl){rl.hidden=!Store.user;rl.textContent=esAdmin()?"Administrador":"Taller";rl.title=Store.user+" · versión "+APP_VERSION}
 }
 /* ===== Roles: el administrador gestiona flota, ítems y ajustes; taller completa chequeos ===== */
+const APP_VERSION="2026-11-03 · v9";
 const ADMIN_DEF=["walther@sanjoseconcretos.com"];
 function esAdmin(){if(!Store.fb)return true;return (window.ADMIN_EMAILS||ADMIN_DEF).map(x=>String(x).toLowerCase()).includes(String(Store.user||"").toLowerCase())}
 function soloAdmin(){if(esAdmin())return false;toast("Solo el administrador puede hacer esto");return true}
@@ -462,17 +463,18 @@ function renderFlota(){
   const total=Store.list("camiones").length, abiertas=Store.list("fichas").filter(f=>f.estado==="abierta").length, enTaller=Store.list("camiones").filter(c=>c.fuera).length;
   $("#main").innerHTML=`
     <div class="row"><h2 style="font-size:30px;margin-right:auto">Flota <span class="muted mono" style="font-size:20px">${total} unidades · ${total-enTaller} operativas · <span style="color:${enTaller?"var(--bad)":"inherit"}">${enTaller} en taller</span>${abiertas?` · ${abiertas} ficha${abiertas>1?"s":""} abierta${abiertas>1?"s":""}`:""}</span></h2>
-    <button class="btn" id="xlsFl">Exportar informe Excel</button><button class="btn adm" id="impSheet">Importar planilla de flota</button><button class="btn primary adm" id="addCam">+ Agregar camión</button></div>
+    <button class="btn adm" id="cfgItems2">Ítems del checklist</button><button class="btn" id="xlsFl">Exportar informe Excel</button><button class="btn adm" id="impSheet">Importar planilla de flota</button><button class="btn primary adm" id="addCam">+ Agregar camión</button></div>
     ${(()=>{const ph=pendientesHoy();return ph.total?`<button class="banner" id="goAl"><b>${ph.al?`${ph.al} alerta${ph.al>1?"s":""} para revisar hoy`:""}${ph.al&&ph.ct?" · ":""}${ph.ct?`${ph.ct} control${ph.ct>1?"es":""} vencido${ph.ct>1?"s":""} o por vencer`:""}</b><span>Ver alertas →</span></button>`:""})()}
     <div class="row"><input class="search" id="q" type="search" placeholder="Buscar por UMC, patente, marca, modelo o tipo" value="${esc(state.q)}"></div>
     ${tiposPres.length>1||enTaller?`<div class="tfil"><button data-tipo="" aria-pressed="${!state.tipo}">Todos <b class="mono">${todos.length}</b></button>${enTaller?`<button data-tipo="__taller" style="--tc:var(--bad)" aria-pressed="${state.tipo==="__taller"}"><i></i>En taller <b class="mono">${enTaller}</b></button>`:""}${tiposPres.map(t=>`<button data-tipo="${esc(t)}" style="${tc(t)}" aria-pressed="${state.tipo===t}"><i></i>${esc(t)} <b class="mono">${todos.filter(c=>c.tipo===t).length}</b></button>`).join("")}</div>`:""}
     ${loading?`<div class="empty"><strong>Cargando la flota…</strong></div>`:
       cams.length?`<div class="grid-cards">${cams.map(cardCamion).join("")}</div>`:
       `<div class="empty"><h3 style="font-size:22px">Todavía no hay camiones cargados</h3><p class="muted" style="margin:0">Subí la planilla de la flota (Excel o CSV) con una fila por UMC, o agregá cada unidad a mano.</p><p class="soloTaller" style="margin:0"><b>El administrador tiene que cargar la flota.</b></p><div class="row" style="justify-content:center">${window.SEED_URL?`<button class="btn primary adm" id="seedBtn">Cargar la flota SJC</button>`:""}<button class="btn adm ${window.SEED_URL?"":"primary"}" id="impSheet2">Importar planilla de flota</button><button class="btn adm" id="addCam2">+ Agregar a mano</button></div></div>`}
-    <div class="row noprint adm" style="margin-top:12px"><button class="btn ghost" id="cfgItems">Ítems del checklist</button><button class="btn ghost" id="tpl">Descargar planilla modelo</button><button class="btn ghost" id="exp">Exportar respaldo</button><label class="btn ghost" for="imp" style="display:inline-flex;align-items:center">Importar respaldo</label><input type="file" id="imp" accept="application/json,.json" hidden></div>`;
+    <div class="row noprint adm" style="margin-top:12px"><button class="btn ghost" id="cfgItems">Ítems del checklist</button><button class="btn ghost" id="tpl">Descargar planilla modelo</button><button class="btn ghost" id="exp">Exportar respaldo</button><label class="btn ghost" for="imp" style="display:inline-flex;align-items:center">Importar respaldo</label><input type="file" id="imp" accept="application/json,.json" hidden></div>
+    <p class="muted noprint" style="font-size:12px;margin:8px 0 0">Versión ${APP_VERSION}</p>`;
   $("#addCam").onclick=()=>camionModal();const ga=$("#goAl");if(ga)ga.onclick=()=>go("alertas");
   const a2=$("#addCam2");if(a2)a2.onclick=()=>camionModal();
-  $("#impSheet").onclick=pickSheet;$("#xlsFl").onclick=informeModal;const sb=$("#seedBtn");if(sb)sb.onclick=async()=>{sb.disabled=true;try{const d=await (await fetch(window.SEED_URL)).json();d.camiones.forEach(c=>Store.save("camiones",c));render();toast(`${d.camiones.length} móviles cargados`)}catch(e){sb.disabled=false;toast("No se pudo cargar la flota")}};const i2=$("#impSheet2");if(i2)i2.onclick=pickSheet;
+  $("#impSheet").onclick=pickSheet;$("#xlsFl").onclick=informeModal;$("#cfgItems2").onclick=itemsModal;const sb=$("#seedBtn");if(sb)sb.onclick=async()=>{sb.disabled=true;try{const d=await (await fetch(window.SEED_URL)).json();d.camiones.forEach(c=>Store.save("camiones",c));render();toast(`${d.camiones.length} móviles cargados`)}catch(e){sb.disabled=false;toast("No se pudo cargar la flota")}};const i2=$("#impSheet2");if(i2)i2.onclick=pickSheet;
   $("#cfgItems").onclick=itemsModal;$("#tpl").onclick=plantillaModelo;
   const qi=$("#q");qi.oninput=()=>{state.q=qi.value;const pos=qi.selectionStart;renderFlota();const n=$("#q");n.focus();n.setSelectionRange(pos,pos)};
   document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{
@@ -842,7 +844,7 @@ function renderCamion(){
   $("#main").innerHTML=`<div class="edhead"><button class="btn ghost" id="back">← Flota</button><h2>UMC ${esc(c.umc)}</h2><span class="plate">${esc(c.patente)}</span><span class="tchip" style="${tc(c.tipo)}">${esc(c.tipo||"")}</span><span class="muted">${esc([c.marca,c.modelo,c.anio].filter(Boolean).join(" "))}</span></div>
   <div class="row">${controlPill(ci)}<div class="f" style="flex-direction:row;align-items:center;gap:8px"><label for="freq" class="lbl">Control cada</label><select id="freq" ${esAdmin()?"":"disabled title=\"Solo el administrador\""} style="min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:6px 10px">${[7,10,15,20,30,45,60].map(n=>`<option value="${n}" ${ci.freq===n?"selected":""}>${n} días</option>`).join("")}</select></div><span style="flex:1"></span><button class="btn primary" id="hacer">${fs[0]&&fs[0].estado==="abierta"?"Continuar ficha":"Hacer control"}</button></div>
   ${c.fuera?`<div class="fuerabar" style="border-radius:var(--r)"><b>EN TALLER · FUERA DE SERVICIO</b><span>Desde ${fdate(c.fuera.desde)} (${haceTxt(diffDays(c.fuera.desde,today()))})${c.fuera.motivo?" · "+esc(c.fuera.motivo):""}</span></div>`:""}
-  <section class="card"><h3>Alertas abiertas (${ab.length})</h3>${ab.length?`<div class="alist">${ab.map(alertaCard).join("")}</div>`:`<p class="muted" style="margin:0">Sin alertas abiertas.</p>`}</section>
+  <section class="card"><div class="row"><h3 style="margin-right:auto">Alertas abiertas (${ab.length})</h3>${ab.length?`<button class="btn noprint" id="prUmc">Imprimir pendientes de este móvil</button>`:""}</div>${ab.length?`<div class="alist">${ab.map(alertaCard).join("")}</div>`:`<p class="muted" style="margin:0">Sin alertas abiertas.</p>`}</section>
   <section class="card"><h3>Evolución por ítem</h3>
     ${cerr.length?`<div class="row"><label class="chk"><input type="checkbox" id="todos" ${state.todos?"checked":""}> Ver todos los ítems (si no, solo los que alguna vez dieron R o M)</label></div>
     ${keys.length?`<div class="tablebox"><table class="matrix"><thead><tr><th>Ítem</th>${cerr.map(f=>`<th class="mono" title="Ficha N° ${esc(f.numero)}">${fdate(f.fechaEntrada).slice(0,5)}</th>`).join("")}</tr></thead><tbody>
@@ -853,6 +855,7 @@ function renderCamion(){
   ${(c.historialTaller||[]).length?`<section class="card"><h3>Paso por taller (${c.historialTaller.length})</h3><div class="tablebox"><table><thead><tr><th>Entró</th><th>Salió</th><th>Días</th><th>Motivo</th><th>Qué se hizo</th></tr></thead><tbody>${[...c.historialTaller].reverse().map(h=>`<tr style="cursor:default"><td class="mono">${fdate(h.desde)}</td><td class="mono">${fdate(h.hasta)}</td><td class="mono">${Math.max(0,diffDays(h.desde,h.hasta))}</td><td style="white-space:normal">${esc(h.motivo||"—")}</td><td style="white-space:normal">${esc(h.nota||"—")}</td></tr>`).join("")}</tbody></table></div></section>`:""}
   ${rs.length?`<section class="card"><h3>Alertas resueltas (${rs.length})</h3><div class="alist">${rs.map(alertaCard).join("")}</div></section>`:""}`;
   $("#back").onclick=()=>go("flota");$("#hacer").onclick=()=>abrirFicha(c.id);
+  {const pu=$("#prUmc");if(pu)pu.onclick=()=>imprimirAlertas("todas",c.id,false)}
   $("#freq").onchange=e=>{const x=JSON.parse(JSON.stringify(c));x.frecuencia=+e.target.value;Store.save("camiones",x);renderCamion();toast("Frecuencia guardada")};
   const t=$("#todos");if(t)t.onchange=()=>{state.todos=t.checked;renderCamion()};
   wireAlertas();document.querySelectorAll("tbody tr[data-id]").forEach(tr=>tr.onclick=()=>go("editor",{fichaId:tr.dataset.id}));
@@ -1131,5 +1134,5 @@ Store.init();
 })();
 </script>
 
-<script>if("serviceWorker" in navigator&&/^https?:/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){const had=!!navigator.serviceWorker.controller;let rl=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had&&!rl){rl=true;location.reload()}});navigator.serviceWorker.register("sw.js").then(r=>{r.update();setInterval(()=>r.update(),30*60*1000)}).catch(()=>{})}</script>
 </body></html>
