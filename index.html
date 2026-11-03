@@ -353,7 +353,7 @@ function setSync(){
   document.body.classList.toggle("noadm",!esAdmin());const rl=$("#rol");if(rl){rl.hidden=!Store.user;rl.textContent=esAdmin()?"Administrador":"Taller";rl.title=Store.user+" · versión "+APP_VERSION}
 }
 /* ===== Roles: el administrador gestiona flota, ítems y ajustes; taller completa chequeos ===== */
-const APP_VERSION="2026-11-03 · v10";
+const APP_VERSION="2026-11-03 · v11";
 const ADMIN_DEF=["walther@sanjoseconcretos.com"];
 function esAdmin(){if(!Store.fb)return true;return (window.ADMIN_EMAILS||ADMIN_DEF).map(x=>String(x).toLowerCase()).includes(String(Store.user||"").toLowerCase())}
 function soloAdmin(){if(esAdmin())return false;toast("Solo el administrador puede hacer esto");return true}
@@ -438,7 +438,15 @@ function statusPill(f){
 document.getElementById("salir").onclick=()=>salir();
 /* ===== Navegación ===== */
 const state={view:"flota",fichaId:null,q:"",filtroCamion:"",filtroEstado:""};
-function go(view,opts={}){Object.assign(state,{view},opts);if(view!=="editor"){try{history.replaceState(null,"","#"+view)}catch(e){}}render();window.scrollTo(0,0)}
+let BORRADOR=null;
+function nuevaBorrador(c){const f=newFicha(c);f.numero="";f.borrador=true;BORRADOR=f;go("editor",{fichaId:f.id})}
+function descartarBorrador(){if(BORRADOR)(BORRADOR.fotos||[]).forEach(x=>{try{Fotos.remove(x)}catch(e){}});BORRADOR=null;if(F&&F.borrador){F=null;dirty=false;clearTimeout(saveT)}}
+function guardarBorrador(){if(!F||!F.borrador)return;clearTimeout(saveT);delete F.borrador;F.numero=nextNumero();F.creada=new Date().toISOString();
+  Store.save("fichas",JSON.parse(JSON.stringify(F)));BORRADOR=null;dirty=false;const n=F.numero;render();toast(`Ficha N° ${n} guardada`)}
+function go(view,opts={}){
+  if(F&&F.borrador&&state.view==="editor"&&(view!=="editor"||opts.fichaId!==F.id)){const v=view,o=opts;
+    confirmar("Esta ficha nueva todavía no se guardó. Si salís, se descarta y no se genera ningún número.","Descartar",()=>{descartarBorrador();go(v,o)});return}
+  Object.assign(state,{view},opts);if(view!=="editor"){try{history.replaceState(null,"","#"+view)}catch(e){}}render();window.scrollTo(0,0)}
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.view==="historial")state.filtroCamion="";go(b.dataset.view)}));
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h==="flota"||h==="historial"||h==="alertas")go(h)});
 
@@ -480,7 +488,7 @@ function renderFlota(){
   const qi=$("#q");qi.oninput=()=>{state.q=qi.value;const pos=qi.selectionStart;renderFlota();const n=$("#q");n.focus();n.setSelectionRange(pos,pos)};
   document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{
     const c=Store.get("camiones",b.dataset.id);if(!c)return;
-    if(b.dataset.act==="nueva"){const ab=fichasDe(c.id).find(f=>f.estado==="abierta");if(ab){go("editor",{fichaId:ab.id});return}const f=newFicha(c);Store.save("fichas",f);go("editor",{fichaId:f.id})}
+    if(b.dataset.act==="nueva"){const ab=fichasDe(c.id).find(f=>f.estado==="abierta");if(ab){go("editor",{fichaId:ab.id});return}nuevaBorrador(c)}
     else if(b.dataset.act==="hist")go("camion",{camionId:c.id});
     else if(b.dataset.act==="edit")camionModal(c);
     else if(b.dataset.act==="taller")tallerModal(c);
@@ -821,7 +829,7 @@ function imprimirAlertas(q,camionId,saltos){
   window.addEventListener("afterprint",fin);
   setTimeout(()=>{try{window.print()}catch(e){}},50);
 }
-function abrirFicha(cid){const c=Store.get("camiones",cid);if(!c)return;const ab=fichasDe(cid).find(f=>f.estado==="abierta");if(ab){go("editor",{fichaId:ab.id});return}const f=newFicha(c);Store.save("fichas",f);go("editor",{fichaId:f.id})}
+function abrirFicha(cid){const c=Store.get("camiones",cid);if(!c)return;const ab=fichasDe(cid).find(f=>f.estado==="abierta");if(ab){go("editor",{fichaId:ab.id});return}nuevaBorrador(c)}
 function ajustesModal(){if(soloAdmin())return;
   const aj=ajustes();const num=(k,l,h)=>`<div class="f"><label for="aj-${k}">${l}</label><input id="aj-${k}" type="number" min="1" max="365" value="${aj[k]}"><span class="muted" style="font-size:13px">${h}</span></div>`;
   $("#layer").innerHTML=`<div class="overlay"><form class="modal" id="ajf"><h2>Ajustes de avisos</h2><div class="fields">
@@ -893,12 +901,13 @@ function eliminarFicha(f){
 /* ===== Vista: editor de ficha ===== */
 let F=null,saveT=null,dirty=false;
 function scheduleSave(){dirty=true;clearTimeout(saveT);saveT=setTimeout(saveNow,700);updateBar()}
-function saveNow(){clearTimeout(saveT);if(F&&dirty){Store.save("fichas",JSON.parse(JSON.stringify(F)));dirty=false;updateBar()}}
+function saveNow(){clearTimeout(saveT);if(F&&F.borrador){BORRADOR=JSON.parse(JSON.stringify(F));dirty=false;updateBar();return}if(F&&dirty){Store.save("fichas",JSON.parse(JSON.stringify(F)));dirty=false;updateBar()}}
 window.addEventListener("pagehide",saveNow);
+window.addEventListener("beforeunload",e=>{if(F&&F.borrador){e.preventDefault();e.returnValue=""}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden)saveNow()});
 
 function renderEditor(){
-  const src=Store.get("fichas",state.fichaId);
+  const src=Store.get("fichas",state.fichaId)||(BORRADOR&&BORRADOR.id===state.fichaId?BORRADOR:null);
   if(!src){go("historial");return}
   F=JSON.parse(JSON.stringify(src));
   if(F.estado==="abierta"){const pl=plantilla();let ch=false;F.extras=F.extras||[];
@@ -914,11 +923,11 @@ function renderEditor(){
   const seg=(path,label,opts)=>`<div class="f"><span class="lbl">${label}</span><div class="seg" data-seg="${path}">${opts.map(o=>`<button type="button" data-v="${o}" aria-pressed="${getP(path)===o}">${o}</button>`).join("")}</div></div>`;
   const isMixer=(v.tipo||"")==="Mixer";
   $("#main").innerHTML=`
-  <div class="edhead"><button class="btn ghost noprint" id="back">← Volver</button><h2>Ficha N° <span class="mono">${esc(F.numero)}</span></h2>${F.estado==="abierta"?`<span class="pill info">Abierta</span>`:`<span class="pill na">Cerrada</span>`}</div>
+  <div class="edhead"><button class="btn ghost noprint" id="back">← Volver</button><h2>${F.borrador?`Ficha nueva <span class="pill warn">Sin guardar</span>`:`Ficha N° <span class="mono">${esc(F.numero)}</span>`}</h2>${F.estado==="abierta"?`<span class="pill info">Abierta</span>`:`<span class="pill na">Cerrada</span>`}</div>
   <section class="cover" style="${tc(v.tipo)}">
     <div class="cimg" id="cimg"></div>
     <div class="cinfo"><div class="row" style="justify-content:space-between"><div style="display:flex;flex-direction:column"><span class="lbl">UMC</span><span class="umc">${esc(v.umc||"—")}</span></div><div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end"><span class="tchip">${esc(v.tipo||"—")}</span><span class="plate">${esc(v.patente)}</span></div></div>
-      <div class="kv"><div><span>Marca y modelo</span><span>${esc([v.marca,v.modelo].filter(Boolean).join(" ")||"—")}</span></div><div><span>Año</span><span>${esc(v.anio||"—")}</span></div><div><span>Fecha de control</span><span class="mono">${fdate(F.fechaEntrada)}</span></div><div><span>Ficha N°</span><span class="mono">${esc(F.numero)}</span></div></div>
+      <div class="kv"><div><span>Marca y modelo</span><span>${esc([v.marca,v.modelo].filter(Boolean).join(" ")||"—")}</span></div><div><span>Año</span><span>${esc(v.anio||"—")}</span></div><div><span>Fecha de control</span><span class="mono">${fdate(F.fechaEntrada)}</span></div><div><span>Ficha N°</span><span class="mono">${F.borrador?"—":esc(F.numero)}</span></div></div>
     </div>
   </section>
   ${ro?`<div class="closed-banner">Ficha cerrada el ${fdate(F.fechaSalida)}. Está en modo lectura. <span style="margin-left:auto"></span><button class="btn adm" id="reopen">Reabrir para corregir</button><button class="btn danger adm" id="delF2" type="button">Eliminar ficha</button></div>`:""}
@@ -953,7 +962,7 @@ function renderEditor(){
     <div class="fields">${inp("proximo.fecha","Fecha estimada","date")}${inp("proximo.km","Km próximo cambio","number")}${seg("proximo.tipo","Tipo",TIPOS_MANT)}${ta("proximo.pendientes","Trabajos pendientes")}</div>
     <div class="sigs">${FIRMAS.map(([k,l])=>sigBox(k,l,ro)).join("")}</div>
   </section>
-  ${!ro?`<div class="row noprint adm"><button class="btn danger" id="delF" type="button">Eliminar ficha</button></div>`:""}
+  ${!ro&&!F.borrador?`<div class="row noprint adm"><button class="btn danger" id="delF" type="button">Eliminar ficha</button></div>`:""}
   </div>`;
   renderJobs();updateCounts();renderPhotos();renderCover();
   $("#back").onclick=()=>{saveNow();go(state.filtroCamion?"historial":"flota")};
@@ -992,7 +1001,7 @@ function renderEditor(){
       F.extras=[...(F.extras||[]),x];F.items[x.id]={estado:"",obs:""};$("#checks").innerHTML=checkRows();updateCounts();scheduleSave();$("#xaddname").value="";toast("Ítem agregado a todas las fichas")};
     const nm=$("#naMixer");if(nm)nm.onclick=()=>{MIXER_ONLY.forEach(n=>{if(keysOf(F).includes(String(n))&&!F.items[n].estado)setEstado(n,"NA")});scheduleSave()};
     $("#addJob").onclick=()=>{F.trabajos.push({desc:"",cant:"",unidad:"",tiempo:"",costo:"",mecanico:"",estado:"Pendiente"});renderJobs();scheduleSave();const l=document.querySelector(`[data-job="${F.trabajos.length-1}:desc"]`);if(l)l.focus()};
-    $("#delF").onclick=()=>eliminarFicha(F);
+    {const dF=$("#delF");if(dF)dF.onclick=()=>eliminarFicha(F)}
     FIRMAS.forEach(([k])=>initSig(k));
   }
   document.querySelectorAll(".secnav a").forEach(a=>a.onclick=e=>{e.preventDefault();const t=document.getElementById(a.getAttribute("href").slice(1));if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
@@ -1098,12 +1107,14 @@ function setupCanvas(k){
 function renderBar(ro){
   $("#bar").innerHTML=`<div class="bar noprint"><div class="wrap"><span class="stat" id="bstat"></span>
     ${window.top===window?`<button class="btn" id="print" type="button">Imprimir</button>`:""}
-    ${ro?"":`<button class="btn primary" id="close" type="button">Cerrar ficha</button>`}</div></div>`;
+    ${ro?"":F&&F.borrador?`<button class="btn" id="discard" type="button">Descartar</button><button class="btn primary" id="saveNew" type="button">Guardar ficha</button>`:`<button class="btn primary" id="close" type="button">Cerrar ficha</button>`}</div></div>`;
   const p=$("#print");if(p)p.onclick=()=>{saveNow();window.print()};
   const c=$("#close");if(c)c.onclick=cerrarFicha;
+  const sn=$("#saveNew");if(sn)sn.onclick=guardarBorrador;
+  const dc=$("#discard");if(dc)dc.onclick=()=>confirmar("¿Descartar esta ficha nueva? No se guarda nada y no se genera número.","Descartar",()=>{descartarBorrador();go("flota")});
   updateBar();
 }
-function updateBar(){const b=$("#bstat");if(!b||!F)return;const r=resumen(F);b.innerHTML=`<b class="mono">${r.done}/${r.total}</b> ítems revisados · ${dirty?"Guardando…":"Guardado"}`}
+function updateBar(){const b=$("#bstat");if(!b||!F)return;const r=resumen(F);b.innerHTML=`<b class="mono">${r.done}/${r.total}</b> ítems revisados · ${F.borrador?"<b>Sin guardar</b>: tocá Guardar ficha":dirty?"Guardando…":"Guardado"}`}
 function cerrarFicha(){
   const faltan=keysOf(F).filter(n=>!F.items[n].estado);
   const sinObs=keysOf(F).filter(needs);
