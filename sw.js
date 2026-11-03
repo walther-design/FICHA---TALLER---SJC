@@ -1,5 +1,5 @@
 // Ficha de Taller SJC: guarda la app en el equipo para que funcione sin internet.
-const CACHE="ficha-sjc-v7";
+const CACHE="ficha-sjc-v8";
 const SHELL=["./","./index.html","./config.js","./manifest.json","./icon-192.png","./icon-512.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

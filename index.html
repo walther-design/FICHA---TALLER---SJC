@@ -304,7 +304,9 @@ const Store={
 };
 /* Plantilla de ítems adicionales (se suman a las fichas nuevas) */
 function plantilla(){return ((Store.get("config","checklist")||{}).extras)||[]}
-function setPlantilla(extras){Store.save("config",{id:"checklist",extras})}
+function setPlantilla(extras){Store.save("config",{...(Store.get("config","checklist")||{}),id:"checklist",extras})}
+function ocultos(){return ((Store.get("config","checklist")||{}).ocultos)||[]}
+function setOcultos(oc){Store.save("config",{...(Store.get("config","checklist")||{}),id:"checklist",extras:plantilla(),ocultos:oc})}
 
 /* ===== Fotos: nube (assets) o esta tablet (IndexedDB) ===== */
 const Fotos={
@@ -405,12 +407,12 @@ function seedLocal(){
 function nextNumero(){const ns=Store.list("fichas").map(f=>parseInt(f.numero,10)||0);return String((ns.length?Math.max(...ns):0)+1).padStart(5,"0")}
 function newFicha(c){
   const items={};ITEMS.forEach((_,i)=>{items[i+1]={estado:"",obs:""}});
-  const extras=plantilla().map(x=>({id:x.id,nombre:x.nombre}));extras.forEach(x=>{items[x.id]={estado:"",obs:""}});
+  const extras=plantilla().map(x=>({id:x.id,nombre:x.nombre})),oc=ocultos().slice();extras.forEach(x=>{items[x.id]={estado:"",obs:""}});
   return {id:uid("f"),numero:nextNumero(),camionId:c.id,estado:"abierta",creada:new Date().toISOString(),creadoPor:Store.user||"",
     fechaEntrada:today(),fechaSalida:"",
     vehiculo:{umc:c.umc,patente:c.patente,marca:c.marca,modelo:c.modelo,anio:c.anio,tipo:c.tipo,chasis:c.chasis,propietario:c.propietario,aseguradora:c.aseguradora,combustible:c.combustible},
     km:"",horometro:"",conductor:"",cedula:"",telefono:"",nivel:"",motivo:"",
-    items,extras,fotos:[],otros:"",trabajos:[],obsMecanico:"",obsConductor:"",
+    items,extras,ocultos:oc,fotos:[],otros:"",trabajos:[],obsMecanico:"",obsConductor:"",
     proximo:{fecha:"",km:"",tipo:"",pendientes:""},
     firmas:{jefe:{},mecanico:{},supervisor:{},conductor:{}}};
 }
@@ -419,7 +421,7 @@ function resumen(f){
   ks.forEach(k=>{const v=(f.items||{})[k]||{};if(v.estado){done++;if(v.estado==="B")B++;else if(v.estado==="R")R++;else if(v.estado==="M")M++;else NA++}});
   return {B,R,M,NA,done,total:ks.length};
 }
-function keysOf(f){return [...ITEMS.slice(0,39).map((_,i)=>String(i+1)),...((f&&f.extras)||[]).map(x=>x.id),"40"]
+function keysOf(f){const oc=(f&&f.ocultos)||[];return [...ITEMS.slice(0,39).map((_,i)=>String(i+1)).filter(k=>!oc.includes(k)),...((f&&f.extras)||[]).map(x=>x.id),"40"]
 }
 function fichasDe(cid){return Store.list("fichas").filter(f=>f.camionId===cid).sort((a,b)=>(b.fechaEntrada||"").localeCompare(a.fechaEntrada||"")||(b.numero||"").localeCompare(a.numero||""))}
 function statusPill(f){
@@ -620,15 +622,21 @@ async function guardarArchivo(filename,data,type){
 
 /* ===== Ítems adicionales del checklist (plantilla) ===== */
 function itemsModal(){if(soloAdmin())return;
-  const ex=plantilla();
-  $("#layer").innerHTML=`<div class="overlay"><div class="modal"><h2>Ítems del checklist</h2>
-    <p class="muted" style="margin:0">Los ítems de la planilla vienen siempre. Los ítems que agregues acá (o desde cualquier ficha) se aplican a todas las fichas abiertas y nuevas, y van antes de "Otros".</p>
-    <div>${ex.length?ex.map((x,i)=>`<div class="item" style="grid-template-columns:34px 1fr auto"><span class="num">${40+i}.</span><span class="name">${esc(x.nombre)}</span><button class="btn ghost" data-delx="${x.id}">Quitar</button></div>`).join(""):`<p class="muted">Todavía no hay ítems adicionales.</p>`}</div>
+  const ex=plantilla(),oc=ocultos();
+  $("#layer").innerHTML=`<div class="overlay"><div class="modal" style="max-width:760px"><h2>Ítems del checklist</h2>
+    <p class="muted" style="margin:0">Lo que quites o agregues acá se aplica a las fichas abiertas y a las nuevas. Las fichas cerradas quedan como estaban. "Otros" va siempre al final.</p>
+    <span class="lbl">Ítems de la planilla</span>
+    <div>${ITEMS.slice(0,39).map((n,i)=>{const k=String(i+1),off=oc.includes(k);return `<div class="item" style="grid-template-columns:34px 1fr auto;${off?"opacity:.55":""}"><span class="num">${i+1}.</span><span class="name">${off?`<s>${esc(n)}</s> <span class="pill na">Quitado</span>`:esc(n)}</span><button class="btn ${off?"":"ghost"}" data-oc="${k}">${off?"Volver a mostrar":"Quitar"}</button></div>`}).join("")}</div>
+    <span class="lbl">Ítems agregados</span>
+    <div>${ex.length?ex.map((x,i)=>`<div class="item" style="grid-template-columns:34px 1fr auto"><span class="num">+</span><span class="name">${esc(x.nombre)}</span><button class="btn ghost" data-delx="${x.id}">Quitar</button></div>`).join(""):`<p class="muted">Todavía no hay ítems adicionales.</p>`}</div>
     <form class="additem" id="xform"><input type="text" id="xname" placeholder="Nombre del ítem nuevo (ej.: Cámara de retroceso)"><button class="btn primary">Agregar</button></form>
     <div class="row" style="justify-content:flex-end"><button class="btn" id="xclose">Listo</button></div></div></div>`;
   $("#xclose").onclick=()=>$("#layer").innerHTML="";
   $("#xform").onsubmit=e=>{e.preventDefault();const n=$("#xname").value.trim();if(!n)return;setPlantilla([...plantilla(),{id:uid("x"),nombre:n}]);itemsModal();$("#xname").focus()};
   document.querySelectorAll("[data-delx]").forEach(b=>b.onclick=()=>{setPlantilla(plantilla().filter(x=>x.id!==b.dataset.delx));itemsModal()});
+  document.querySelectorAll("[data-oc]").forEach(b=>b.onclick=()=>{const k=b.dataset.oc,cur=ocultos(),sc=[$("#layer .overlay").scrollTop,$("#layer .modal").scrollTop];
+    const go2=()=>{setOcultos(cur.includes(k)?cur.filter(x=>x!==k):[...cur,k].sort((a,b)=>a-b));itemsModal();const o=$("#layer .overlay"),m=$("#layer .modal");if(o)o.scrollTop=sc[0];if(m)m.scrollTop=sc[1];toast(cur.includes(k)?"Ítem visible de nuevo":"Ítem quitado de las fichas")};
+    if(cur.includes(k))go2();else confirmar(`¿Quitar "${ITEMS[+k-1]}" del checklist? No aparece más en las fichas abiertas ni en las nuevas. Las fichas cerradas no cambian.`,"Quitar",go2)});
 }
 
 /* ===== Alertas y control periódico ===== */
@@ -849,7 +857,7 @@ function renderCamion(){
   const t=$("#todos");if(t)t.onchange=()=>{state.todos=t.checked;renderCamion()};
   wireAlertas();document.querySelectorAll("tbody tr[data-id]").forEach(tr=>tr.onclick=()=>go("editor",{fichaId:tr.dataset.id}));
 }
-function itemNombreDe(f,k){const ex=(f&&f.extras)||[];if(k==="40")return (40+ex.length)+". "+ITEMS[39];if(/^\d+$/.test(k))return k+". "+ITEMS[+k-1];const i=ex.findIndex(x=>x.id===k);return i<0?k:(40+i)+". "+ex[i].nombre}
+function itemNombreDe(f,k){const ex=(f&&f.extras)||[];const pos=keysOf(f).indexOf(k)+1;if(k==="40")return (pos||40+ex.length)+". "+ITEMS[39];if(/^\d+$/.test(k))return (pos||k)+". "+ITEMS[+k-1];const i=ex.findIndex(x=>x.id===k);return i<0?k:(pos||40+i)+". "+ex[i].nombre}
 
 /* ===== Vista: historial de fichas ===== */
 function renderHistorial(){
@@ -893,6 +901,7 @@ function renderEditor(){
     pl.forEach(x=>{if(!F.extras.some(e=>e.id===x.id)){F.extras.push({id:x.id,nombre:x.nombre});F.items[x.id]=F.items[x.id]||{estado:"",obs:""};ch=true}});
     F.extras=F.extras.filter(e=>{const keep=pl.some(x=>x.id===e.id)||((F.items[e.id]||{}).estado);if(!keep){delete F.items[e.id];ch=true}return keep});
     F.extras.forEach(e=>{const t=pl.find(x=>x.id===e.id);if(t&&t.nombre!==e.nombre){e.nombre=t.nombre;ch=true}});
+    {const oc=ocultos();if(JSON.stringify(F.ocultos||[])!==JSON.stringify(oc)){F.ocultos=oc.slice();ch=true}}
     if(ch){dirty=true;setTimeout(saveNow,0)}}
   const ro=F.estado==="cerrada";
   const v=F.vehiculo||{};
@@ -976,7 +985,7 @@ function renderEditor(){
       {const pl=plantilla();const same=pl.find(p=>norm(p.nombre)===norm(nm));if(same)x={...same};else setPlantilla([...pl,x])}
       if((F.extras||[]).some(e=>e.id===x.id)){toast("Ese ítem ya está en la ficha");return}
       F.extras=[...(F.extras||[]),x];F.items[x.id]={estado:"",obs:""};$("#checks").innerHTML=checkRows();updateCounts();scheduleSave();$("#xaddname").value="";toast("Ítem agregado a todas las fichas")};
-    const nm=$("#naMixer");if(nm)nm.onclick=()=>{MIXER_ONLY.forEach(n=>{if(!F.items[n].estado)setEstado(n,"NA")});scheduleSave()};
+    const nm=$("#naMixer");if(nm)nm.onclick=()=>{MIXER_ONLY.forEach(n=>{if(keysOf(F).includes(String(n))&&!F.items[n].estado)setEstado(n,"NA")});scheduleSave()};
     $("#addJob").onclick=()=>{F.trabajos.push({desc:"",cant:"",unidad:"",tiempo:"",costo:"",mecanico:"",estado:"Pendiente"});renderJobs();scheduleSave();const l=document.querySelector(`[data-job="${F.trabajos.length-1}:desc"]`);if(l)l.focus()};
     $("#delF").onclick=()=>eliminarFicha(F);
     FIRMAS.forEach(([k])=>initSig(k));
@@ -986,7 +995,7 @@ function renderEditor(){
 }
 function getP(p){return p.split(".").reduce((o,k)=>o==null?"":o[k],F)??""}
 function setP(p,v){const ks=p.split(".");let o=F;ks.slice(0,-1).forEach(k=>{o[k]=o[k]||{};o=o[k]});o[ks.at(-1)]=v}
-function checkRows(){const ex=F.extras||[];return ITEMS.slice(0,39).map((name,i)=>itemRow(String(i+1),i+1,name,false)).join("")+ex.map((x,i)=>itemRow(x.id,40+i,x.nombre,true)).join("")+itemRow("40",40+ex.length,ITEMS[39],false)}
+function checkRows(){const ex=F.extras||[];return keysOf(F).map((k,i)=>{const x=ex.find(e=>e.id===k);return x?itemRow(k,i+1,x.nombre,true):itemRow(k,i+1,ITEMS[+k-1],false)}).join("")}
 function fotosDeItem(k){return (F.fotos||[]).filter(f=>f.item===k).length}
 function itemRow(n,num,name,isX){
   const it=F.items[n]||(F.items[n]={estado:"",obs:""});
