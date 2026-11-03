@@ -4,7 +4,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-body.noadm .adm{display:none!important}body:not(.noadm) .soloTaller{display:none!important}
+body.noadm .adm{display:none!important}
+#printAl{display:none}
+@media print{body.pr-al>*:not(#printAl){display:none!important}body.pr-al{background:#fff!important}body.pr-al #printAl{display:block;font:12px/1.35 system-ui,Arial,sans-serif;color:#000}
+#printAl *{white-space:normal!important;letter-spacing:normal!important;font-family:Arial,Helvetica,sans-serif!important;text-transform:none!important;overflow-wrap:anywhere}#printAl table{min-width:0!important}#printAl td,#printAl th{font-size:11px;line-height:1.3;height:auto}
+.pa-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #27348B;padding-bottom:6px;margin-bottom:10px}.pa-head b{display:block;font-size:18px;letter-spacing:.06em}.pa-head span{font-size:14px}.pa-meta{text-align:right;font-size:12px}
+.pa-umc{break-inside:avoid;margin-bottom:14px}.pa-break{break-before:page}.pa-ttl{display:flex;gap:14px;align-items:center;background:#1D1D1B;color:#fff;padding:6px 10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pa-u{font-size:16px;font-weight:700}.pa-t{background:#c62828;padding:1px 6px;border-radius:3px;font-weight:700}
+.pa-tb{width:100%;border-collapse:collapse;table-layout:fixed}.pa-tb th,.pa-tb td{border:1px solid #888;padding:4px 5px;vertical-align:top;text-align:left;word-wrap:break-word}.pa-tb th{background:#e8eaf3;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pa-tb tr{break-inside:avoid}
+.pa-m{font-weight:700;color:#b71c1c}.pa-r{font-weight:700;color:#8a5a00}.pa-hoy{border:1px solid #000;padding:0 4px;font-size:10px;font-weight:700}.pa-box{display:block;height:28px}
+.pa-firm{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:12px}@page{size:A4;margin:12mm}}
+body:not(.noadm) .soloTaller{display:none!important}
 #rol{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid rgb(255 255 255 / .5);margin-left:6px}
 /* Layout: barra superior fija + pestañas grandes para tablet; la ficha se edita como una planilla en tarjetas por sección */
 :root{
@@ -451,7 +460,7 @@ function renderFlota(){
   const total=Store.list("camiones").length, abiertas=Store.list("fichas").filter(f=>f.estado==="abierta").length, enTaller=Store.list("camiones").filter(c=>c.fuera).length;
   $("#main").innerHTML=`
     <div class="row"><h2 style="font-size:30px;margin-right:auto">Flota <span class="muted mono" style="font-size:20px">${total} unidades · ${total-enTaller} operativas · <span style="color:${enTaller?"var(--bad)":"inherit"}">${enTaller} en taller</span>${abiertas?` · ${abiertas} ficha${abiertas>1?"s":""} abierta${abiertas>1?"s":""}`:""}</span></h2>
-    <button class="btn adm" id="impSheet">Importar planilla de flota</button><button class="btn primary adm" id="addCam">+ Agregar camión</button></div>
+    <button class="btn" id="xlsFl">Exportar informe Excel</button><button class="btn adm" id="impSheet">Importar planilla de flota</button><button class="btn primary adm" id="addCam">+ Agregar camión</button></div>
     ${(()=>{const ph=pendientesHoy();return ph.total?`<button class="banner" id="goAl"><b>${ph.al?`${ph.al} alerta${ph.al>1?"s":""} para revisar hoy`:""}${ph.al&&ph.ct?" · ":""}${ph.ct?`${ph.ct} control${ph.ct>1?"es":""} vencido${ph.ct>1?"s":""} o por vencer`:""}</b><span>Ver alertas →</span></button>`:""})()}
     <div class="row"><input class="search" id="q" type="search" placeholder="Buscar por UMC, patente, marca, modelo o tipo" value="${esc(state.q)}"></div>
     ${tiposPres.length>1||enTaller?`<div class="tfil"><button data-tipo="" aria-pressed="${!state.tipo}">Todos <b class="mono">${todos.length}</b></button>${enTaller?`<button data-tipo="__taller" style="--tc:var(--bad)" aria-pressed="${state.tipo==="__taller"}"><i></i>En taller <b class="mono">${enTaller}</b></button>`:""}${tiposPres.map(t=>`<button data-tipo="${esc(t)}" style="${tc(t)}" aria-pressed="${state.tipo===t}"><i></i>${esc(t)} <b class="mono">${todos.filter(c=>c.tipo===t).length}</b></button>`).join("")}</div>`:""}
@@ -461,7 +470,7 @@ function renderFlota(){
     <div class="row noprint adm" style="margin-top:12px"><button class="btn ghost" id="cfgItems">Ítems del checklist</button><button class="btn ghost" id="tpl">Descargar planilla modelo</button><button class="btn ghost" id="exp">Exportar respaldo</button><label class="btn ghost" for="imp" style="display:inline-flex;align-items:center">Importar respaldo</label><input type="file" id="imp" accept="application/json,.json" hidden></div>`;
   $("#addCam").onclick=()=>camionModal();const ga=$("#goAl");if(ga)ga.onclick=()=>go("alertas");
   const a2=$("#addCam2");if(a2)a2.onclick=()=>camionModal();
-  $("#impSheet").onclick=pickSheet;const sb=$("#seedBtn");if(sb)sb.onclick=async()=>{sb.disabled=true;try{const d=await (await fetch(window.SEED_URL)).json();d.camiones.forEach(c=>Store.save("camiones",c));render();toast(`${d.camiones.length} móviles cargados`)}catch(e){sb.disabled=false;toast("No se pudo cargar la flota")}};const i2=$("#impSheet2");if(i2)i2.onclick=pickSheet;
+  $("#impSheet").onclick=pickSheet;$("#xlsFl").onclick=informeModal;const sb=$("#seedBtn");if(sb)sb.onclick=async()=>{sb.disabled=true;try{const d=await (await fetch(window.SEED_URL)).json();d.camiones.forEach(c=>Store.save("camiones",c));render();toast(`${d.camiones.length} móviles cargados`)}catch(e){sb.disabled=false;toast("No se pudo cargar la flota")}};const i2=$("#impSheet2");if(i2)i2.onclick=pickSheet;
   $("#cfgItems").onclick=itemsModal;$("#tpl").onclick=plantillaModelo;
   const qi=$("#q");qi.oninput=()=>{state.q=qi.value;const pos=qi.selectionStart;renderFlota();const n=$("#q");n.focus();n.setSelectionRange(pos,pos)};
   document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{
@@ -704,15 +713,102 @@ function renderAlertas(){
   const sinCtrl=Store.list("camiones").filter(c=>controlInfo(c).estado==="sin").length;
   const ctrl=Store.list("camiones").map(c=>({c,ci:controlInfo(c)})).filter(x=>x.ci.estado==="vencido"||x.ci.estado==="pronto").sort((a,b)=>({vencido:0,pronto:1,sin:2}[a.ci.estado]-{vencido:0,pronto:1,sin:2}[b.ci.estado])||(a.ci.d??0)-(b.ci.d??0));
   const aj=ajustes();
-  $("#main").innerHTML=`<div class="row"><h2 style="font-size:30px;margin-right:auto">Alertas</h2><button class="btn ghost adm" id="cfgAj">Ajustes de avisos</button></div>
+  $("#main").innerHTML=`<div class="row"><h2 style="font-size:30px;margin-right:auto">Alertas</h2><button class="btn" id="prAl">Imprimir alertas por UMC</button><button class="btn" id="xlsAl">Exportar informe Excel</button><button class="btn ghost adm" id="cfgAj">Ajustes de avisos</button></div>
   <div class="tiles"><div class="tile ${venc.length?"bad":""}"><b class="mono">${venc.length}</b><span>Para revisar hoy</span></div><div class="tile"><b class="mono">${seg.length}</b><span>En seguimiento</span></div><div class="tile ${ctrl.some(x=>x.ci.estado==="vencido")?"bad":""}"><b class="mono">${ctrl.filter(x=>x.ci.estado!=="sin").length}</b><span>Controles vencidos o por vencer</span></div><div class="tile"><b class="mono">${all.filter(a=>a.estado==="resuelta"&&a.resuelta&&diffDays(a.resuelta.fecha,hoy)<=30).length}</b><span>Resueltas en 30 días</span></div></div>
   <p class="muted" style="margin:0">Cada ítem marcado <b>M</b> avisa cada ${aj.diasM} días y cada <b>R</b> cada ${aj.diasR} días, hasta que se marca como hecho o vuelve a salir Bueno en un control. El control de cada camión vence a los ${aj.frecuencia} días.</p>
   <section class="card"><h3>Para revisar hoy</h3>${venc.length?`<div class="alist">${venc.map(alertaCard).join("")}</div>`:`<p class="muted" style="margin:0">Nada pendiente para hoy.</p>`}</section>
   <section class="card"><h3>Controles periódicos</h3>${ctrl.length?`<div class="alist">${ctrl.map(({c,ci})=>`<article class="alerta ${ci.estado==="vencido"?"m":ci.estado==="pronto"?"r":""}"><div class="al-umc"><span class="lbl">UMC</span><span class="umc">${esc(c.umc)}</span><span class="plate sm">${esc(c.patente)}</span></div><div class="al-body">${controlPill(ci)}<span class="muted" style="font-size:14px">${ci.prox?`Último control ${fdate(ultimoControl(c.id).fechaEntrada)} · cada ${ci.freq} días`:"Todavía no tiene ningún control cerrado"}</span></div><div class="al-act"><button class="btn primary" data-nueva="${c.id}">Hacer control</button></div></article>`).join("")}</div>`:`<p class="muted" style="margin:0">Ningún control vencido ni por vencer.</p>`}${sinCtrl?`<p class="muted" style="margin:0">${sinCtrl} móvil${sinCtrl>1?"es":""} todavía sin ningún control cerrado.</p>`:""}</section>
   <section class="card"><h3>En seguimiento</h3>${seg.length?`<div class="alist">${seg.map(alertaCard).join("")}</div>`:`<p class="muted" style="margin:0">No hay alertas esperando el próximo aviso.</p>`}</section>
   ${res.length?`<section class="card"><h3>Resueltas recientemente</h3><div class="alist">${res.map(alertaCard).join("")}</div></section>`:""}`;
-  wireAlertas();$("#cfgAj").onclick=ajustesModal;
+  wireAlertas();$("#cfgAj").onclick=ajustesModal;$("#prAl").onclick=imprimirAlertasModal;$("#xlsAl").onclick=informeModal;
   document.querySelectorAll("[data-nueva]").forEach(b=>b.onclick=()=>abrirFicha(b.dataset.nueva));
+}
+/* ===== Informe en Excel ===== */
+function informeModal(){
+  const hasta=today(),desde=addDays(hasta,-90);
+  $("#layer").innerHTML=`<div class="overlay"><form class="modal" id="inf" style="max-width:560px"><h2>Exportar informe en Excel</h2>
+    <p class="muted" style="margin:0">El archivo trae: resumen, estado de la flota, fichas del período, ítems en Regular y Malo, y alertas abiertas.</p>
+    <div class="fields"><div class="f"><label for="inf-d">Fichas desde</label><input type="date" id="inf-d" value="${desde}"></div><div class="f"><label for="inf-h">Hasta</label><input type="date" id="inf-h" value="${hasta}"></div></div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="infx">Cancelar</button><button class="btn primary">Descargar Excel</button></div></form></div>`;
+  $("#infx").onclick=()=>$("#layer").innerHTML="";
+  $("#inf").onsubmit=async e=>{e.preventDefault();const d=$("#inf-d").value||"0000-01-01",h=$("#inf-h").value||"9999-12-31";
+    try{await exportarInforme(d,h);$("#layer").innerHTML=""}catch(err){toast("No se pudo armar el informe")}};
+}
+function datosInforme(desde,hasta){
+  const cams=Store.list("camiones").sort(byUmc),camOf=id=>Store.get("camiones",id)||{};
+  const abiertas=Store.list("alertas").filter(a=>a.estado==="abierta");
+  const umcA=a=>camOf(a.camionId).umc||a.umc||"";
+  const fichas=Store.list("fichas").filter(f=>(f.fechaEntrada||"")>=desde&&(f.fechaEntrada||"")<=hasta)
+    .sort((a,b)=>(a.fechaEntrada||"").localeCompare(b.fechaEntrada||"")||String(a.numero).localeCompare(String(b.numero)));
+  const flota=cams.map(c=>{const ci=controlInfo(c),u=ultimoControl(c.id),al=abiertas.filter(a=>a.camionId===c.id);
+    return {"UMC":c.umc,"Patente":c.patente,"Tipo":c.tipo,"Marca":c.marca,"Modelo":c.modelo,"Año":c.anio,
+      "Servicio":c.fuera?"En taller · fuera de servicio":"Operativo","En taller desde":c.fuera?fdate(c.fuera.desde):"","Motivo taller":c.fuera?c.fuera.motivo||"":"",
+      "Último control":u?fdate(u.fechaEntrada):"","Próximo control":ci.prox?fdate(ci.prox):"","Estado del control":ci.txt,
+      "Alertas abiertas":al.length,"Malo":al.filter(a=>a.nivel==="M").length,"Regular":al.filter(a=>a.nivel==="R").length}});
+  const fch=[],det=[];
+  fichas.forEach(f=>{const r=resumen(f),v=f.vehiculo||{},c=camOf(f.camionId);const rm=[];
+    keysOf(f).forEach(k=>{const it=(f.items||{})[k]||{};if(it.estado==="R"||it.estado==="M"){const n=itemNombreDe(f,k).replace(/^\d+\.\s*/,"");rm.push(`${n} (${it.estado})`);
+      det.push({"N° ficha":f.numero,"Fecha":fdate(f.fechaEntrada),"UMC":c.umc||v.umc||"","Patente":c.patente||v.patente||"","Ítem":n,"Estado":EST_LABEL[it.estado],"Observación":it.obs||""})}});
+    fch.push({"N° ficha":f.numero,"Fecha":fdate(f.fechaEntrada),"UMC":c.umc||v.umc||"Móvil eliminado","Patente":c.patente||v.patente||"","Tipo":c.tipo||v.tipo||"",
+      "Estado ficha":f.estado==="cerrada"?"Cerrada":"Abierta","Km":f.km||"","Conductor":f.conductor||"",
+      "Bueno":r.B,"Regular":r.R,"Malo":r.M,"No aplica":r.NA,"Sin marcar":r.total-r.done,"Ítems en R / M":rm.join("; "),
+      "Obs. mecánico":f.obsMecanico||"","Obs. conductor":f.obsConductor||"","Jefe de control":((f.firmas||{}).jefe||{}).nombre||"","Cargada por":f.creadoPor||""})});
+  const al=abiertas.slice().sort((a,b)=>byUmc({umc:umcA(a)},{umc:umcA(b)})||(a.nivel===b.nivel?0:a.nivel==="M"?-1:1)).map(a=>{const s=(a.seguimiento||[]).slice(-1)[0]||{};
+    return {"UMC":umcA(a),"Patente":camOf(a.camionId).patente||a.patente||"","Ítem":a.nombre,"Nivel":EST_LABEL[a.nivel],"Observación":a.obs||"",
+      "Detectada":fdate(a.detectada),"Días abierta":Math.max(0,diffDays(a.detectada,today())),"Aviso N°":avisoN(a),"Aviso cada (días)":a.cadaDias,
+      "Próximo aviso":fdate(a.proximoAviso),"Para revisar hoy":alertaVencida(a)?"Sí":"No","Ficha N°":a.fichaNumero,"Último seguimiento":s.texto?`${fdate(s.fecha)} · ${s.texto}`:""}});
+  const tot=(k,x)=>fch.reduce((n,f)=>n+(f[k]||0),0);
+  const res=[["Informe de control de flota · San José Concretos"],[],["Generado",new Date().toLocaleString("es-AR")],["Período de fichas",`${fdate(desde)} al ${fdate(hasta)}`],[],
+    ["Unidades en la flota",cams.length],["Operativas",cams.filter(c=>!c.fuera).length],["En taller · fuera de servicio",cams.filter(c=>c.fuera).length],
+    ["Controles vencidos",cams.filter(c=>controlInfo(c).estado==="vencido").length],["Sin ningún control",cams.filter(c=>controlInfo(c).estado==="sin").length],[],
+    ["Fichas en el período",fch.length],["Cerradas",fch.filter(f=>f["Estado ficha"]==="Cerrada").length],["Abiertas",fch.filter(f=>f["Estado ficha"]==="Abierta").length],
+    ["Ítems marcados Regular",tot("Regular")],["Ítems marcados Malo",tot("Malo")],[],
+    ["Alertas abiertas",al.length],["Alertas en Malo",al.filter(a=>a.Nivel==="Malo").length],["Alertas en Regular",al.filter(a=>a.Nivel==="Regular").length],["Para revisar hoy",al.filter(a=>a["Para revisar hoy"]==="Sí").length]];
+  return {res,flota,fch,det,al};
+}
+async function exportarInforme(desde,hasta){
+  const D=datosInforme(desde,hasta),nombre=`informe-flota-${today()}`;
+  if(!window.XLSX){toast("Para el Excel hace falta internet. Conectate y probá de nuevo.");throw 0}
+  const wb=XLSX.utils.book_new();
+  const hoja=(rows,name,heads)=>{const ws=rows.length?XLSX.utils.json_to_sheet(rows):XLSX.utils.aoa_to_sheet([heads||["Sin datos"]]);
+    const keys=rows.length?Object.keys(rows[0]):heads||[];ws["!cols"]=keys.map(k=>({wch:Math.min(60,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)}));
+    if(rows.length)ws["!autofilter"]={ref:ws["!ref"]};XLSX.utils.book_append_sheet(wb,ws,name)};
+  const wr=XLSX.utils.aoa_to_sheet(D.res);wr["!cols"]=[{wch:34},{wch:28}];XLSX.utils.book_append_sheet(wb,wr,"Resumen");
+  hoja(D.flota,"Flota");hoja(D.fch,"Fichas",["Sin fichas en el período"]);hoja(D.det,"Ítems R y M",["Sin ítems en Regular o Malo"]);hoja(D.al,"Alertas abiertas",["Sin alertas abiertas"]);
+  const data=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  await guardarArchivo(nombre+".xlsx",data,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");toast("Informe descargado");
+}
+/* ===== Hoja imprimible de alertas abiertas por UMC ===== */
+function imprimirAlertasModal(){
+  const cams=[...new Set(Store.list("alertas").filter(a=>a.estado==="abierta").map(a=>a.camionId))].map(id=>Store.get("camiones",id)).filter(Boolean).sort(byUmc);
+  $("#layer").innerHTML=`<div class="overlay"><form class="modal" id="pra" style="max-width:560px"><h2>Imprimir alertas por UMC</h2>
+    <div class="fields"><div class="f"><label for="pra-q">Qué alertas</label><select id="pra-q"><option value="todas">Todas las abiertas</option><option value="hoy">Solo las para revisar hoy</option></select></div>
+    <div class="f"><label for="pra-u">Móvil</label><select id="pra-u"><option value="">Todos los móviles</option>${cams.map(c=>`<option value="${c.id}">${esc(c.umc)}</option>`).join("")}</select></div></div>
+    <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="pra-p" checked style="width:22px;height:22px"> Cada móvil en una hoja aparte</label>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="prax">Cancelar</button><button class="btn primary">Imprimir</button></div></form></div>`;
+  $("#prax").onclick=()=>$("#layer").innerHTML="";
+  $("#pra").onsubmit=e=>{e.preventDefault();const q=$("#pra-q").value,u=$("#pra-u").value,p=$("#pra-p").checked;$("#layer").innerHTML="";imprimirAlertas(q,u,p)};
+}
+function hojaAlertasHTML(soloHoy,camionId,saltos){
+  const al=Store.list("alertas").filter(a=>a.estado==="abierta"&&(!soloHoy||alertaVencida(a))&&(!camionId||a.camionId===camionId));
+  const grupos={};al.forEach(a=>{(grupos[a.camionId]=grupos[a.camionId]||[]).push(a)});
+  const ids=Object.keys(grupos).sort((x,y)=>byUmc(Store.get("camiones",x)||grupos[x][0],Store.get("camiones",y)||grupos[y][0]));
+  const fecha=new Date().toLocaleDateString("es-AR");
+  const head=`<div class="pa-head"><div><b>SAN JOSÉ CONCRETOS</b><span>Alertas abiertas a revisar${soloHoy?" · para hoy":""}</span></div><div class="pa-meta">Fecha: ${fecha}<br>Móviles: ${ids.length} · Alertas: ${al.length}</div></div>`;
+  if(!ids.length)return head+`<p>No hay alertas abiertas${soloHoy?" para revisar hoy":""}.</p>`;
+  return head+ids.map((id,i)=>{const c=Store.get("camiones",id)||{},g=grupos[id].sort((a,b)=>(a.nivel===b.nivel?0:a.nivel==="M"?-1:1)||(a.detectada||"").localeCompare(b.detectada||""));
+    return `<section class="pa-umc${saltos&&i?" pa-break":""}">${saltos&&i?head:""}<div class="pa-ttl"><span class="pa-u">UMC ${esc(c.umc||g[0].umc)}</span><span>${esc(c.patente||g[0].patente||"")}</span><span>${esc([c.tipo,c.marca,c.modelo].filter(Boolean).join(" · "))}</span>${c.fuera?`<span class="pa-t">EN TALLER desde ${fdate(c.fuera.desde)}</span>`:""}<span style="margin-left:auto">${g.length} alerta${g.length>1?"s":""}</span></div>
+      <table class="pa-tb"><thead><tr><th style="width:4%">#</th><th style="width:26%">Ítem</th><th style="width:8%">Nivel</th><th style="width:22%">Observación</th><th style="width:10%">Detectada</th><th style="width:7%">Días</th><th style="width:7%">Aviso</th><th style="width:16%">Revisado / Comentario</th></tr></thead>
+      <tbody>${g.map((a,j)=>`<tr><td>${j+1}</td><td><b>${esc(a.nombre)}</b>${alertaVencida(a)?` <span class="pa-hoy">HOY</span>`:""}</td><td class="${a.nivel==="M"?"pa-m":"pa-r"}">${EST_LABEL[a.nivel]}</td><td>${esc(a.obs||"")}</td><td>${fdate(a.detectada)}<br><small>Ficha ${esc(a.fichaNumero)}</small></td><td>${Math.max(0,diffDays(a.detectada,today()))}</td><td>N° ${avisoN(a)}</td><td><span class="pa-box"></span></td></tr>`).join("")}</tbody></table>
+      <div class="pa-firm"><span>Operador: ______________________</span><span>Jefe de control: ______________________</span><span>Fecha revisión: ____/____/______</span></div></section>`}).join("");
+}
+function imprimirAlertas(q,camionId,saltos){
+  let box=document.getElementById("printAl");if(!box){box=document.createElement("div");box.id="printAl";document.body.appendChild(box)}
+  box.innerHTML=hojaAlertasHTML(q==="hoy",camionId,saltos);
+  document.body.classList.add("pr-al");
+  const fin=()=>{document.body.classList.remove("pr-al");window.removeEventListener("afterprint",fin)};
+  window.addEventListener("afterprint",fin);
+  setTimeout(()=>{try{window.print()}catch(e){}},50);
 }
 function abrirFicha(cid){const c=Store.get("camiones",cid);if(!c)return;const ab=fichasDe(cid).find(f=>f.estado==="abierta");if(ab){go("editor",{fichaId:ab.id});return}const f=newFicha(c);Store.save("fichas",f);go("editor",{fichaId:f.id})}
 function ajustesModal(){if(soloAdmin())return;
